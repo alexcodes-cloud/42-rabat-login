@@ -1,6 +1,7 @@
 import NextAuth, { customFetch } from 'next-auth';
 import type { OAuthConfig } from 'next-auth/providers';
 import { z } from 'zod';
+import { intraPhotoPath, profilePhotoUrl } from '@/lib/intra-photo';
 
 const RABAT_CAMPUS_ID = 75;
 type FortyTwoProfile = Record<string, unknown>;
@@ -15,6 +16,7 @@ const profileSchema = z.object({
   id: z.number().int().positive(),
   login: z.string().min(1),
   campus_users: z.array(z.object({ campus_id: z.number().int() })).default([]),
+  image: z.unknown().transform(intraPhotoPath).optional(),
 });
 
 const provider: OAuthConfig<FortyTwoProfile> = {
@@ -49,7 +51,7 @@ const provider: OAuthConfig<FortyTwoProfile> = {
       id: String(user.id),
       name: user.login,
       email: null,
-      image: null,
+      image: user.image ?? null,
       login: user.login,
     };
   },
@@ -70,12 +72,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user && account?.provider === '42') {
         token.fortyTwoId = account.providerAccountId;
         token.login = user.login;
+        token.photoPath = typeof user.image === 'string' ? user.image : undefined;
       }
       return token;
     },
     session({ session, token }) {
       session.user.id = String(token.fortyTwoId);
       session.user.login = String(token.login);
+      const userId = Number(token.fortyTwoId);
+      session.user.image = Number.isSafeInteger(userId) ? profilePhotoUrl(userId, typeof token.photoPath === 'string' ? token.photoPath : undefined) : null;
       return session;
     },
   },

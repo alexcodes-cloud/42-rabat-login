@@ -24,6 +24,7 @@ export default async function Home() {
       <h1>Signed in</h1>
       <p>42 login: {session.user.login}</p>
       <p>42 user ID: {session.user.id}</p>
+      {session.user.image ? <img src={session.user.image} alt={`42 profile photo for ${session.user.login}`} width={160} height={160} /> : <p>No 42 profile photo is available.</p>}
       <form action={async () => {
         'use server';
         await signOut({ redirectTo: '/' });
