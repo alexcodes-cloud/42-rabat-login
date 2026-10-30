@@ -1,9 +1,15 @@
-import NextAuth from 'next-auth';
+import NextAuth, { customFetch } from 'next-auth';
 import type { OAuthConfig } from 'next-auth/providers';
 import { z } from 'zod';
 
 const RABAT_CAMPUS_ID = 75;
 type FortyTwoProfile = Record<string, unknown>;
+
+const authFetch: typeof fetch = (input, init = {}) => {
+  const timeout = AbortSignal.timeout(15_000);
+  const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+  return fetch(input, { ...init, signal });
+};
 
 const profileSchema = z.object({
   id: z.number().int().positive(),
@@ -24,16 +30,9 @@ const provider: OAuthConfig<FortyTwoProfile> = {
     async conform(response: Response) {
       const contentType = response.headers.get('content-type');
       if (!contentType?.toLowerCase().startsWith('application/json')) {
-        const reader = response.clone().body?.getReader();
-        const firstChunk = await reader?.read();
-        await reader?.cancel();
-        const preview = firstChunk?.value
-          ? new TextDecoder().decode(firstChunk.value.subarray(0, 4096))
-          : '';
-        const htmlTitle = preview.match(/<title[^>]*>([^<]{1,100})<\/title>/i)?.[1]?.replace(/[\r\n]/g, ' ').trim() ?? 'none';
         const server = response.headers.get('server') ?? 'unknown';
         const ray = response.headers.get('cf-ray') ?? 'none';
-        throw new Error(`42 OAuth token response was not JSON (status ${response.status}, content type ${contentType ?? 'missing'}, redirected ${response.redirected}, host ${response.url ? new URL(response.url).host : 'unknown'}, server ${server}, cf-ray ${ray}, html title ${htmlTitle})`);
+        throw new Error(`42 OAuth token response was not JSON (status ${response.status}, content type ${contentType ?? 'missing'}, redirected ${response.redirected}, host ${response.url ? new URL(response.url).host : 'unknown'}, server ${server}, cf-ray ${ray})`);
       }
       return response;
     },
@@ -42,6 +41,7 @@ const provider: OAuthConfig<FortyTwoProfile> = {
   clientId: process.env.FORTYTWO_CLIENT_ID,
   clientSecret: process.env.FORTYTWO_CLIENT_SECRET,
   client: { token_endpoint_auth_method: 'client_secret_post' },
+  [customFetch]: authFetch,
   checks: ['state'],
   profile(profile) {
     const user = profileSchema.parse(profile);
