@@ -11,8 +11,9 @@ export function validPhotoPath(path: unknown): path is string {
 export function intraPhotoPath(image: unknown): string | null {
   if (!image || typeof image !== 'object') return null;
   const { link, versions } = image as { link?: unknown; versions?: unknown };
-  const small = versions && typeof versions === 'object' ? (versions as { small?: unknown }).small : undefined;
-  for (const value of [small, link]) {
+  const sizes = versions && typeof versions === 'object' ? versions as { large?: unknown; medium?: unknown; small?: unknown; micro?: unknown } : {};
+  // `link` is the original image; resized versions are only fallbacks.
+  for (const value of [link, sizes.large, sizes.medium, sizes.small, sizes.micro]) {
     if (typeof value !== 'string') continue;
     try {
       const url = new URL(value);
